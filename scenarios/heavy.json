@@ -1,0 +1,254 @@
+{
+  "size": 30,
+  "horizon": 200,
+  "restaurants": [
+    {
+      "id": "r1",
+      "name": "Кафе",
+      "position": [
+        5,
+        5
+      ],
+      "loading_ticks": 2
+    },
+    {
+      "id": "r2",
+      "name": "Пиццерия",
+      "position": [
+        23,
+        6
+      ],
+      "loading_ticks": 3
+    },
+    {
+      "id": "r3",
+      "name": "Кухня",
+      "position": [
+        15,
+        23
+      ],
+      "loading_ticks": 4
+    }
+  ],
+  "couriers": [
+    {
+      "position": [
+        5,
+        3
+      ],
+      "name": "Пеший",
+      "capacity": 2,
+      "tariff": 2
+    },
+    {
+      "position": [
+        23,
+        3
+      ],
+      "name": "Пеший",
+      "capacity": 2,
+      "tariff": 2
+    },
+    {
+      "position": [
+        15,
+        20
+      ],
+      "name": "Пеший",
+      "capacity": 2,
+      "tariff": 2
+    },
+    {
+      "position": [
+        5,
+        6
+      ],
+      "name": "Вело",
+      "capacity": 5,
+      "tariff": 3
+    },
+    {
+      "position": [
+        27,
+        6
+      ],
+      "name": "Вело",
+      "capacity": 5,
+      "tariff": 3
+    },
+    {
+      "position": [
+        10,
+        23
+      ],
+      "name": "Вело",
+      "capacity": 5,
+      "tariff": 3
+    },
+    {
+      "position": [
+        20,
+        23
+      ],
+      "name": "Грузовой",
+      "capacity": 10,
+      "tariff": 4
+    },
+    {
+      "position": [
+        23,
+        12
+      ],
+      "name": "Грузовой",
+      "capacity": 10,
+      "tariff": 4
+    }
+  ],
+  "orders": [
+    {
+      "id": 1,
+      "restaurant_id": "r1",
+      "arrival": 0,
+      "destination": [
+        10,
+        8
+      ],
+      "deadline": 39,
+      "weight": 8,
+      "budget": 125
+    },
+    {
+      "id": 2,
+      "restaurant_id": "r2",
+      "arrival": 6,
+      "destination": [
+        27,
+        8
+      ],
+      "deadline": 45,
+      "weight": 4,
+      "budget": 95
+    },
+    {
+      "id": 3,
+      "restaurant_id": "r3",
+      "arrival": 12,
+      "destination": [
+        22,
+        27
+      ],
+      "deadline": 51,
+      "weight": 8,
+      "budget": 125
+    },
+    {
+      "id": 4,
+      "restaurant_id": "r1",
+      "arrival": 18,
+      "destination": [
+        10,
+        7
+      ],
+      "deadline": 57,
+      "weight": 1,
+      "budget": 70
+    },
+    {
+      "id": 5,
+      "restaurant_id": "r2",
+      "arrival": 24,
+      "destination": [
+        27,
+        9
+      ],
+      "deadline": 63,
+      "weight": 8,
+      "budget": 125
+    },
+    {
+      "id": 6,
+      "restaurant_id": "r3",
+      "arrival": 30,
+      "destination": [
+        23,
+        25
+      ],
+      "deadline": 69,
+      "weight": 1,
+      "budget": 70
+    },
+    {
+      "id": 7,
+      "restaurant_id": "r1",
+      "arrival": 36,
+      "destination": [
+        10,
+        8
+      ],
+      "deadline": 75,
+      "weight": 8,
+      "budget": 125
+    },
+    {
+      "id": 8,
+      "restaurant_id": "r2",
+      "arrival": 42,
+      "destination": [
+        27,
+        8
+      ],
+      "deadline": 81,
+      "weight": 4,
+      "budget": 95
+    },
+    {
+      "id": 9,
+      "restaurant_id": "r3",
+      "arrival": 48,
+      "destination": [
+        22,
+        27
+      ],
+      "deadline": 87,
+      "weight": 8,
+      "budget": 125
+    },
+    {
+      "id": 10,
+      "restaurant_id": "r1",
+      "arrival": 54,
+      "destination": [
+        10,
+        7
+      ],
+      "deadline": 93,
+      "weight": 1,
+      "budget": 70
+    },
+    {
+      "id": 11,
+      "restaurant_id": "r2",
+      "arrival": 60,
+      "destination": [
+        27,
+        9
+      ],
+      "deadline": 99,
+      "weight": 8,
+      "budget": 125
+    },
+    {
+      "id": 12,
+      "restaurant_id": "r3",
+      "arrival": 66,
+      "destination": [
+        23,
+        25
+      ],
+      "deadline": 105,
+      "weight": 1,
+      "budget": 70
+    }
+  ],
+  "map": "city-map.json"
+}

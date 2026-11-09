@@ -1,0 +1,78 @@
+{
+  "size": 10,
+  "pickup": [
+    4,
+    4
+  ],
+  "loading_ticks": 2,
+  "couriers": [
+    [
+      0,
+      4
+    ],
+    [
+      4,
+      0
+    ],
+    [
+      8,
+      4
+    ]
+  ],
+  "orders": [
+    {
+      "id": 1,
+      "arrival": 0,
+      "destination": [
+        4,
+        5
+      ],
+      "deadline": 16
+    },
+    {
+      "id": 2,
+      "arrival": 10,
+      "destination": [
+        4,
+        6
+      ],
+      "deadline": 26
+    },
+    {
+      "id": 3,
+      "arrival": 20,
+      "destination": [
+        4,
+        6
+      ],
+      "deadline": 36
+    },
+    {
+      "id": 4,
+      "arrival": 30,
+      "destination": [
+        4,
+        6
+      ],
+      "deadline": 46
+    },
+    {
+      "id": 5,
+      "arrival": 40,
+      "destination": [
+        4,
+        6
+      ],
+      "deadline": 56
+    },
+    {
+      "id": 6,
+      "arrival": 50,
+      "destination": [
+        4,
+        6
+      ],
+      "deadline": 66
+    }
+  ]
+}
