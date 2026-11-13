@@ -2,15 +2,8 @@ import argparse
 import tkinter as tk
 from tkinter import ttk
 
-from pathlib import Path
-
-from model import Scenario, Simulation
-
-BASE = Path(__file__).parent
-SCENARIOS = {
-    "regular": ("Обычный поток", BASE / "scenarios" / "regular.json"),
-    "control": ("Контрольный", BASE / "scenario.json"),
-}
+from experiments import SCENARIOS, metrics, run
+from model import MODES, Scenario, Simulation
 
 COURIER_COLORS = ("#216ac4", "#a34717", "#187955")
 
@@ -56,7 +49,12 @@ class CourierApp:
                                            state="readonly", width=15)
         self.scenario_choice.current(0)
         self.scenario_choice.pack(side="left", padx=(0, 6))
-        self.scenario_choice.bind("<<ComboboxSelected>>", lambda _: self.reset())
+        self.mode_choice = ttk.Combobox(config, values=list(MODES.values()),
+                                       state="readonly", width=20)
+        self.mode_choice.current(0)
+        self.mode_choice.pack(side="left")
+        for choice in (self.scenario_choice, self.mode_choice):
+            choice.bind("<<ComboboxSelected>>", lambda _: self.reset())
         self.summary = ttk.Label(panel, wraplength=420)
         self.summary.pack(anchor="w", pady=(0, 8))
         self.choices = ttk.Frame(panel)
@@ -85,7 +83,8 @@ class CourierApp:
     def reset(self):
         self.pause()
         name = tuple(SCENARIOS)[self.scenario_choice.current()]
-        self.sim = Simulation(Scenario.load(SCENARIOS[name][1]))
+        mode = tuple(MODES)[self.mode_choice.current()]
+        self.sim = Simulation(Scenario.load(SCENARIOS[name][1]), mode=mode)
         self.logged = 0
         self.logged_activity = 0
         self.logged_tick = -1
@@ -143,9 +142,18 @@ class CourierApp:
                       if booking else "свободно")
             queue = ", ".join(str(item.courier_id) for item in pickup.waiting) or "—"
             windows.append(f"{pickup.restaurant.name}: {window} · очередь {queue}")
+        if self.sim.rounds:
+            orders = ", ".join(str(round_.order.id) for round_ in self.sim.rounds)
+            windows.append(f"Раунды до т. {self.sim.rounds[0].closes_at}: {orders}")
         self.window_status.configure(text="\n".join(windows))
-        payout = sum(c.earnings for c in self.sim.couriers.values())
-        self.summary.configure(text=f"Выплаты: {payout}")
+        result = metrics(self.sim)
+        self.summary.configure(text=(
+            f"В срок: {result['on_time']}/{result['arrived']} · "
+            f"Заказы: {result['order_distance']} кл. · Переезды: {result['reposition_distance']} кл.\n"
+            f"Сообщения: {result['messages']} · Выплаты: {result['payout']}"
+            + (f"\nПрогон завершён. Незавершённых: {result['unfinished']}."
+               if self.sim.finished else "")
+        ))
         if self.sim.finished:
             self.step_button.configure(state="disabled")
             self.play_button.configure(state="disabled")
@@ -298,18 +306,18 @@ def main():
     parser = argparse.ArgumentParser(description="Симулятор курьерской МАС")
     parser.add_argument("--trace", action="store_true", help="вывести трассу в терминал")
     parser.add_argument("--scenario", choices=SCENARIOS, default="regular")
+    parser.add_argument("--mode", choices=MODES, default="dispatch")
     args = parser.parse_args()
     if args.trace:
-        sim = Simulation(Scenario.load(SCENARIOS[args.scenario][1]))
-        while not sim.finished:
-            sim.step()
+        sim = run(Simulation(Scenario.load(SCENARIOS[args.scenario][1]), mode=args.mode))
         for message in sorted(sim.messages + sim.activity, key=lambda event: event.tick):
             print(format_message(message))
-        print(sim.dispatcher.delivered)
+        print(metrics(sim))
         return
     root = tk.Tk()
     app = CourierApp(root)
     app.scenario_choice.current(tuple(SCENARIOS).index(args.scenario))
+    app.mode_choice.current(tuple(MODES).index(args.mode))
     app.reset()
     root.mainloop()
 

@@ -9,6 +9,7 @@ Point = tuple[int, int]
 DISPATCHER = "Диспетчер"
 PICKUP = "Пункт выдачи"
 LAST_TICK = 100
+MODES = {"dispatch": "Диспетчеризация", "auction": "Обратный аукцион"}
 
 
 def distance(first: Point, second: Point) -> int:
@@ -135,6 +136,19 @@ class Estimate:
     price: int | None = None
 
 
+@dataclass(frozen=True)
+class Bid:
+    estimate: Estimate
+    twice_price: int
+
+
+@dataclass(frozen=True)
+class AuctionRound:
+    order: Order
+    closes_at: int
+    bids: tuple[Bid, ...]
+
+
 @dataclass
 class Courier:
     id: int
@@ -179,6 +193,15 @@ class Courier:
             f"{calculation}До выдачи {to_pickup} кл. Доставка без очереди на такте "
             f"{finish}, срок {order.deadline}."
         )
+
+    def bid(self, order, close_tick, restaurant, path):
+        position = self.path[0] if self.reposition_target and self.path else self.position
+        estimate, reason = self.estimate(order, close_tick, restaurant, path, position)
+        if estimate is None:
+            return None, reason
+        twice_price = (2 * estimate.price if estimate.price is not None
+                       else 2 * estimate.distance + self.delivered_count)
+        return Bid(estimate, twice_price), reason
 
     def assign(self, order, pickup, path):
         assert self.order is None
@@ -256,8 +279,13 @@ class Pickup:
 
 
 class Simulation:
-    def __init__(self, scenario, choose_courier=nearest_ready, choose_loading=fifo):
+    def __init__(self, scenario, choose_courier=nearest_ready, choose_loading=fifo, *, mode="dispatch"):
+        if mode not in MODES:
+            raise ValueError(f"Неизвестный режим: {mode}")
+        self.mode = mode
+        self.rounds: list[AuctionRound] = []
         self.activity: list[Message] = []
+        self.failed_round_states: dict[int, tuple] = {}
         self.scenario = scenario
         self.choose_courier = choose_courier
         self.choose_loading = choose_loading
@@ -305,10 +333,10 @@ class Simulation:
             reason = f"Ближайший готовый курьер. До выдачи {winner.distance} кл."
             self.assign(order, winner.courier_id, "ASSIGN", reason)
 
-    def assign(self, order, courier_id, kind, reason):
+    def assign(self, order, courier_id, kind, reason, payment=None):
         courier = self.couriers[courier_id]
         if order.budget is not None:
-            agreed = order.budget
+            agreed = order.budget if payment is None else payment
             self.dispatcher.agreed_payments[order.id] = agreed
             reason += f" Выплата при доставке: {agreed}."
         self.send(DISPATCHER, courier.name, kind, order.id, reason)
@@ -317,6 +345,44 @@ class Simulation:
         courier.last_decision = f"Принял заказ №{order.id}. {reason}"
         self.dispatcher.assigned[order.id] = courier.id
         self.dispatcher.pending.remove(order)
+
+    def auction_state(self):
+        return tuple((c.id, c.position) for c in self.couriers.values() if c.order is None)
+
+    def close_auctions(self):
+        for auction in self.rounds:
+            available = [bid for bid in auction.bids
+                         if self.couriers[bid.estimate.courier_id].order is None]
+            winner = min(available, key=lambda bid: (bid.twice_price, bid.estimate.courier_id),
+                         default=None)
+            for bid in auction.bids:
+                if bid == winner:
+                    continue
+                courier = self.couriers[bid.estimate.courier_id]
+                reason = ("Курьер уже назначен на другой заказ." if bid not in available
+                          else "Выбрана меньшая ставка или меньший номер при равенстве.")
+                self.send(DISPATCHER, courier.name, "AUCTION_REJECT", auction.order.id, reason)
+            if winner is not None:
+                self.assign(auction.order, winner.estimate.courier_id, "AUCTION_ACCEPT",
+                            f"Раунд закрыт. Победила ставка {winner.twice_price / 2:g}.",
+                            payment=winner.twice_price // 2)
+            elif auction.bids:
+                self.failed_round_states[auction.order.id] = self.auction_state()
+        self.rounds.clear()
+
+    def open_auctions(self):
+        if self.tick >= self.scenario.horizon:
+            return
+        candidates = self.auction_state()
+        for order in self.dispatcher.pending:
+            restaurant = self.pickups[order.restaurant_id].restaurant
+            earliest = self.tick + 1 + restaurant.loading_ticks + len(self.scenario.path(
+                restaurant.position, order.destination))
+            if earliest > order.deadline or self.failed_round_states.get(order.id) == candidates:
+                continue
+            self.open_auction(order, candidates)
+            if self.scenario.streets is None:
+                break
 
     def start_repositioning(self):
         if self.scenario.streets is None:
@@ -338,6 +404,28 @@ class Simulation:
     def record_activity(self, courier, kind, reason):
         order_id = courier.order.id if courier.order else None
         self.activity.append(Message(self.tick, courier.name, "", kind, order_id, reason))
+
+    def open_auction(self, order, candidates):
+        close_tick = self.tick + 1
+        bids = []
+        for courier in self.couriers.values():
+            self.send(DISPATCHER, courier.name, "AUCTION_OPEN", order.id,
+                      f"Закрытие раунда на такте {close_tick}.")
+        for courier in self.couriers.values():
+            bid, reason = courier.bid(
+                order, close_tick, self.pickups[order.restaurant_id].restaurant, self.scenario.path)
+            if bid is not None:
+                bids.append(bid)
+            if bid is not None and order.budget is None:
+                reason = (f"Ставка {bid.twice_price / 2:g} = {bid.estimate.distance} + "
+                          f"0,5 × {courier.delivered_count}. {reason}")
+            self.send(courier.name, DISPATCHER, "BID" if bid else "AUCTION_REFUSE",
+                      order.id, reason)
+            courier.last_decision = f"Заказ №{order.id}. {reason}"
+            courier.last_offer = courier.last_decision
+        self.rounds.append(AuctionRound(order, close_tick, tuple(bids)))
+        if not bids:
+            self.failed_round_states[order.id] = candidates
 
     def step(self):
         if self.finished:
@@ -384,8 +472,13 @@ class Simulation:
         for order in arrivals:
             self.dispatcher.pending.append(order)
             self.send("Среда", DISPATCHER, "ARRIVAL", order.id, f"Срок {order.deadline}.")
-        self.assign_orders()
-        self.start_repositioning()
+        if self.mode == "auction":
+            self.close_auctions()
+            self.start_repositioning()
+            self.open_auctions()
+        else:
+            self.assign_orders()
+            self.start_repositioning()
         for courier in self.couriers.values():
             if courier.state == "Едет за заказом" and not courier.path:
                 reason = f"Прибыл к пункту выдачи на такте {self.tick}. Запросил загрузку."
